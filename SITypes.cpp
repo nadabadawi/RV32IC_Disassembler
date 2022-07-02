@@ -1,15 +1,9 @@
 #include <iostream>
 #include <vector>
-//#include "Instructions32bits.cpp"
 #include "I32.h"
-//#include "Instructions16bits.cpp"
 using namespace std;
 
 string ABI[32] = { "zero", "ra", "sp", "gp", "tp", "t0","t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3" ,"a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6" };
-
-//vector<pair<string, Rtype >> opcodes = { "0010011","0000011", "0100011" };
-//vector<Rtype>
-//vector<string> opcodes = {"0010011","0000011", "0100011"};
 
 void InstDec16bit(string IW);
 void InstDec32bit(unsigned int IW);
@@ -18,12 +12,9 @@ void InstDec32bit(unsigned int IW);
 int main()
 {
 	unsigned int bin = 0xC6520F23;
-	unsigned int test2 = 0x00535293;
-	//int val1 = 0101;//octal
-	//unsigned int val2 = 0b0100011;
-	InstDec32bit(test2);
-	/*cout << endl << Store32[0].name << endl;
-	cout  << " " << val2;*/
+	unsigned int lhu = 0x00545403;
+	unsigned int test2 = 0x40535293;
+	InstDec32bit(lhu);
 	system("pause");
 	return 0;
 }
@@ -48,28 +39,28 @@ void InstDec32bit(unsigned int IW)
 	S_imm = (S_imm_temp << 5) | S_imm;
 	cout << "Test: " << opcode << " " << funct3 << " " << rs1 << " " << rs2 << " " << S_imm << endl;
 	//funct3 is the index of each vector (based on opcode)
-	cout << "Test2: "  << opcode << "\n\n";
+	cout << "Test2: " << opcode << "\n\n";
 	switch (opcode)
 	{
-		case (35): 
-			cout << Store32[funct3].name << " " << ABI[rs2] << ", " << dec << S_imm << "(" << ABI[rs1] << ")\n";
-			break;
-		case 19: //IF FUNCT3 = 101 THEN CHECK IMM[11:5] != 0 THEN INDEX = 8
+	case (35):
+		cout << Store32[funct3] << " " << ABI[rs2] << ", " << dec << S_imm << "(" << ABI[rs1] << ")\n";
+		break;
+	case 19: //IF FUNCT3 = 101 THEN CHECK IMM[11:5] != 0 THEN INDEX = 8
+	{
+		if (funct3 == 1 || funct3 == 5)
 		{
-			if (funct3 == 1 || funct3 == 5)
-			{
-				I_imm = rs2;
-				if (S_imm_temp != 0)
-					funct3 = 0x8;
-			}
-			cout << Immediate32[funct3].name << " " << ABI[rd] << ", " << ABI[rs1] << ", " << int(I_imm) << endl;
-			break;
+			I_imm = rs2;
+			if (S_imm_temp != 0)
+				funct3 = 0x8;
 		}
-		case 3:
-			cout << Load32[funct3].name << " " << ABI[rd] << ", " << int(I_imm) << "(" << ABI[rs1] << ")\n";
-			break;
-		default: 
-			cout << "Unkown Instruction \n";
+		cout << Immediate32[funct3] << " " << ABI[rd] << ", " << ABI[rs1] << ", " << int(I_imm) << endl;
+		break;
+	}
+	case 3:
+		cout << Load32[funct3] << " " << ABI[rd] << ", " << int(I_imm) << "(" << ABI[rs1] << ")\n";
+		break;
+	default:
+		cout << "Unkown Instruction \n";
 	}
 
 	// — inst[31] — inst[30:25] inst[24:21] inst[20]
