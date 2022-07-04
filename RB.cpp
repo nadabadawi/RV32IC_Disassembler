@@ -17,14 +17,9 @@ void IW16(unsigned int IW);
 
 int main()
 {
-	//Testing 32 bits IW:
-	/*unsigned int bin = 0xC6520F23;
-	unsigned int lhu = 0x00545403;
-	unsigned int test2 = 0x40535293;
-	InstDec32bit(lhu);*/
-	//unsigned int add_test = 0x90A2;
-	
 
+	unsigned int add_test = 0x90A2;
+	IW16(add_test);
 
 	system("pause");
 	return 0;
@@ -103,13 +98,10 @@ void IW16(unsigned int IW)
 	A_rd_rs1 = (IW >> 7) & 0x7; //3 bits
 	funct6 = (IW >> 10) & 0x3F; // 6 bits
 
-	cout << "opcode: " << opcode << endl;
-	cout << ADD_rs2 << " " << ADD_rd_rs1 << endl;
-
 	if (opcode == 1 && funct6 == 35)
 		cout << Arithmetic16[funct2] << " " << CABI[A_rd_rs1] << ", " << CABI[A_rd_rs1] << ", " << CABI[A_rs2] << endl;
 	else if (opcode == 2 && funct4 == 9 && ADD_rs2 != 0 && ADD_rd_rs1 != 0)
-		cout << "ADD " << CABI[ADD_rd_rs1] << ", " << CABI[ADD_rd_rs1] << ", " << CABI[ADD_rs2] << endl;
+		cout << "C.ADD " << ABI[ADD_rd_rs1] << ", " << ABI[ADD_rd_rs1] << ", " << ABI[ADD_rs2] << endl;
 	else
 		cout << "Unkown instruction \n";
 }
