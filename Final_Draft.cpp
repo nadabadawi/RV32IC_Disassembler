@@ -25,6 +25,7 @@ unsigned int pc = 0x0;
 
 int main(int argc, char *argv[])
 {
+	unsigned int testNumber = 0xbc1ff06f;
 
 	unsigned int instWord = 0;
 	unsigned int instWord_second_part = 0;
@@ -88,7 +89,7 @@ int main(int argc, char *argv[])
 void InstDec32bit(unsigned int IW)
 {
 	unsigned int rd, rs1, rs2, funct3, opcode;
-	unsigned int I_imm, S_imm, S_imm_temp;
+	unsigned int I_imm, S_imm, S_imm_temp, B_imm;
 	// unsigned int address;
 	unsigned int funct7;
 	unsigned int immediate_12, immediate_10to5, immediate_4to1, immediate_11, J_imm_temp, U_imm, J_imm;
@@ -97,29 +98,32 @@ void InstDec32bit(unsigned int IW)
 
 	opcode = IW & 0x0000007F; // Last 7 bits
 	// S_imm = (IW >> 7) & 0x0000001F; //5 bits
-	rd = (IW >> 7) & 0x1F;				  // 5 bits //rd for I-Type and imm[4:0] for S-Type
-	funct3 = (IW >> 12) & 0x00000007;	  // 3 bits
-	rs1 = (IW >> 15) & 0x0000001F;		  // 5 bits
-	rs2 = (IW >> 20) & 0x0000001F;		  // 5 bits
-	I_imm = (IW >> 20) & 0xFFF;			  // 12 bits
-	S_imm_temp = (IW >> 25) & 0x0000007F; // First 7 bits
-	S_imm = (S_imm_temp << 5) | rd;
+	rd = (IW >> 7) & 0x1F;			  // 5 bits //rd for I-Type and imm[4:0] for S-Type
+	funct3 = (IW >> 12) & 0x00000007; // 3 bits
+	rs1 = (IW >> 15) & 0x0000001F;	  // 5 bits
+	rs2 = (IW >> 20) & 0x0000001F;	  // 5 bits
+	I_imm = (((IW >> 20) & 0x7FF) |
+			 (((IW >> 31) & 1) ? 0xFFFFF800 : 0x0)); // 12 bits
+	S_imm_temp = (IW >> 25) & 0x0000007F;			 // First 7 bits
+	S_imm = (S_imm_temp << 5) | rd | ((IW >> 31) ? 0xFFFFF800 : 0x0);
 
-	U_imm = ((IW >> 12) & (0xfffff));
-	J_imm_temp = ((((IW >> 21) & (0x3ff)) | // 1:10
-				   ((IW >> 20) & (0b1)) |	// 11
-				   ((IW >> 12) & (0xff)) |	// 12:19
-				   ((IW >> 30) & (0b1)))
-				  << 1) |
-				 0x0; // 20
-	J_imm = J_imm_temp / 2;
+	U_imm = (IW >> 12);
+	J_imm = (((IW >> 12) & 0x000000FF) << 12) |
+			(((IW >> 20) & 1) << 11) |
+			(((IW >> 21) & 0x000003FF) << 1) |
+			(((IW >> 31) & 1) ? 0xFFF00000 : 0x0);
 
 	funct7 = (IW >> 25) & 0x7F;			 // 7 bits
 	immediate_12 = (IW >> 31) & 0x1;	 // 1 bit
 	immediate_10to5 = (IW >> 25) & 0x3F; // 6 bits
 	immediate_4to1 = (IW >> 8) & 0x1F;	 // 4 bits
 	immediate_11 = (IW >> 7) & 0x1;		 // 1 bit
-	unsigned int B_imm = (immediate_12 << 12) | (immediate_11 << 11) | (immediate_10to5 << 5) | (immediate_4to1 << 1) | 0x0;
+	B_imm = (immediate_12 << 12) |
+					(immediate_11 << 11) |
+					(immediate_10to5 << 5) |
+					(immediate_4to1 << 1) | (immediate_12)
+				? 0xFFF00000
+				: 0x0;
 
 	// cout << "Test: " << opcode << " " << funct3 << " " << rs1 << " " << rs2 << " " << S_imm << endl;
 
@@ -212,24 +216,28 @@ void InstDec16bit(unsigned int IW)
 	seg1 = (IW >> 10) & 0x7;   // 3 bits (part of imm in load/store)
 	funct3 = (IW >> 13) & 0x7; // 3 bits
 	S_imm = (temp6 << 6) | (seg1 << 3) | (temp2 << 2) | 0x0;
-	I_imm = (seg2 << 5) | I_imm;
+	I_imm = (seg2 << 5) | I_imm | ((seg2 << 5) ? 0xfffffc0 : 0x0);
 	J_imm = ((((
-				  (((IW >> 3) & (0x7)) << 1) |
-				  (((IW >> 12) & (0x1)) << 4) |
-				  (((IW >> 2) & (0x1)) << 5) |
-				  (((IW >> 7) & (0x1)) << 6) |
-				  (((IW >> 6) & (0x1)) << 7) |
-				  (((IW >> 10) & (0x3)) << 8) |
-				  (((IW >> 9) & (0x1)) << 10) |
-				  (((IW >> 11) & (0x1)) << 11)))
+				   (((IW >> 3) & (0x7)) << 1) |
+				   (((IW >> 12) & (0x1)) << 4) |
+				   (((IW >> 2) & (0x1)) << 5) |
+				   (((IW >> 7) & (0x1)) << 6) |
+				   (((IW >> 6) & (0x1)) << 7) |
+				   (((IW >> 10) & (0x3)) << 8) |
+				   (((IW >> 9) & (0x1)) << 10) |
+				   (((IW >> 11) & (0x1)) << 11)) |
+					   ((((IW >> 11) & (0x1)) << 11) & 1)
+				   ? 0xFFFFF000
+				   : 0x0)
 			  << 1) |
 			 0x0);
 	U_imm = ((
-				 (((IW >> 2) & (0b11111)) |
-				  (((IW >> 12) & (0b1)))))
-			 << 12) |
-			0x0;
-
+				(((IW >> 2) & (0b11111)) |
+				 (((IW >> 12) & (0b1)) << 7)))) |
+					((IW >> 12) & (0b1))
+				? 0xffffffc0
+				: 0x0;
+	// addi x0, x0, -7
 	ADD_rs2 = (IW >> 2) & 0x1F;	   // 5 bits
 	funct4 = (IW >> 12) & 0xF;	   // 4 bits
 	funct6 = (IW >> 10) & 0x3F;	   // 6 bits;
