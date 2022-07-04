@@ -41,15 +41,13 @@ int main(int argc, char* argv[])
 	{
 		int fsize = inFile.tellg();
 		int count = 0;
-		cout << "Size: " << fsize;
+		//cout << "Size: " << fsize;
 		inFile.seekg(0, inFile.beg);
-		cout << "heere";
 		if (!inFile.read((char*)memory, fsize)) emitError("Cannot read from input file\n");
 
 		while (true) {
 			Read16bits(instWord);
 			count++;
-			cout << "here";
 			if ((instWord & 0b11) == 3)
 			{
 				Read16bits(instWord_second_part);
@@ -62,7 +60,6 @@ int main(int argc, char* argv[])
 
 				if (count == fsize) break;
 		}
-		//printArr();
 	}
 	else emitError("Cannot access input file\n");
 }
@@ -150,7 +147,7 @@ void InstDec32bit(unsigned int IW)
 	case 23:
 		cout << "AUIPC" << ABI[rd] << ", " << hex << U_imm << endl;
 	case 111:
-		cout << "JAL" << ABI[rd] << ", " << hex << J_imm << endl;
+		cout << "JAL " << ABI[rd] << ", " << hex << J_imm << endl;
 	case (51):
 	{
 		if (funct7 == 0)
@@ -262,7 +259,7 @@ void InstDec16bit(unsigned int IW)
 
 void printPrefix(unsigned int instA, unsigned int instW)
 {
-	cout << "0x" << hex << std::setfill('0') << std::setw(8) << instA << "\t0x" << std::setw(8) << instW;
+	cout << "0x" << hex << std::setfill('0') << std::setw(8) << instA << "\t0x" << std::setw(8) << instW<<" ";
 }
 void emitError(string s)
 {
