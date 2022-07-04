@@ -17,10 +17,10 @@ void IW16(unsigned int IW);
 
 int main()
 {
-
 	unsigned int add_test = 0x90A2;
+	unsigned int test_32 = 0x04848463;
 	IW16(add_test);
-
+	IW32(test_32);
 	system("pause");
 	return 0;
 }
@@ -40,24 +40,21 @@ void IW32(unsigned int IW)
 	immediate_10to5 = (IW >> 25) & 0x3F; //6 bits
 	immediate_4to1 = (IW >> 8) & 0x1F; //4 bits
 	immediate_11 = (IW >> 7) & 0x1; //1 bit
-
+	unsigned int B_imm = (immediate_12 << 12) | (immediate_11 << 11) | (immediate_10to5 << 5) | (immediate_4to1 << 1) | 0x0;
 	cout << "Test: " << opcode << " " << funct3 << " " << rs1 << " " << rs2 << " " << immediate_12 << endl;
 	switch (opcode)
 	{
 	case (51):
 	{
 		if (funct7 == 0)
-		{
 			cout << Register32[funct3] << " " << ABI[rd] << ", " << ABI[rs2] << ABI[rs2] << "\n";
-		}
 		else
 		{
 			if (funct3 == 0)
 			{
 				cout << Register32[8] << " " << ABI[rd] << ", " << ABI[rs2] << ABI[rs2] << "\n";
 			}
-
-			if (funct3 == 5)
+			else if (funct3 == 5)
 			{
 				cout << Register32[9] << " " << ABI[rd] << ", " << ABI[rs2] << ABI[rs2] << "\n";
 			}
@@ -66,15 +63,7 @@ void IW32(unsigned int IW)
 	}
 	case (99):
 	{
-		string immediate;
-		immediate = to_string(immediate_11) + to_string(immediate_10to5) + to_string(immediate_4to1) + to_string(0);
-		string bin(immediate);
-		int temp = stoi(bin, nullptr, 2);
-
-		if (immediate_12 == '1')
-			temp = 0 - temp;
-
-		cout << Branch32[funct3] << " " << ABI[rs1] << ", " << ABI[rs2] << ", " << temp << endl;
+		cout << Branch32[funct3] << " " << ABI[rs1] << ", " << ABI[rs2] << ", " << B_imm << endl;
 		break;
 	}
 
@@ -83,7 +72,6 @@ void IW32(unsigned int IW)
 	}
 
 }
-
 void IW16(unsigned int IW)
 {
 	unsigned int opcode, ADD_rs2, ADD_rd_rs1, funct4, A_rs2, funct2, A_rd_rs1, funct6;
