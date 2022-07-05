@@ -277,7 +277,7 @@ void InstDec16bit(unsigned int IW)
 	{
 	case 0:
 		if (funct3 == 0)
-			cout << "C.ADDI14SP " << ABI[rs1_3] << ", 0x" << hex << int(I_16_SP) << endl;
+			cout << "C.ADDI14SP " << CABI[rs1_3] << ", 0x" << hex << int(I_16_SP) << endl;
 		else
 			cout << LoadStore16[(funct3 - 2) / 4] << " " << CABI[rd] << ", 0x" << hex << S_imm << "(" << CABI[rs1_3] << ")\n";
 		break;
@@ -343,13 +343,13 @@ void InstDec16bit(unsigned int IW)
 		{
 			cout << "C.LWSP" << "\t" << ABI[rd] << " 0x" << hex;
 			signExtension(lwsp_immediate, 8, 3);
-			cout << "(X2)" << endl;
+			cout << "(sp)" << endl;
 		}
 		else if (funct3 == 6)
 		{
 			cout << "C.SWSP" << "\t" << ABI[rs2] << " 0x" << hex;
 			signExtension(swsp_immediate, 8, 8);
-			cout << "(X2)" << endl;
+			cout << "(sp)" << endl;
 		}
 		else
 			cout << "Unkown Instruction \n";
