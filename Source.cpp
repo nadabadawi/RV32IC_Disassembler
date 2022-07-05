@@ -19,7 +19,7 @@ void Read16bits(unsigned int& instWord);
 // Main Algorithm:
 void InstDec16bit(unsigned int IW);
 void InstDec32bit(unsigned int IW);
-
+void signExtension(unsigned int immediate, int imm_size, int MSB_location);
 char memory[8 * 1024];
 unsigned int pc = 0x0;
 
@@ -102,16 +102,14 @@ void InstDec32bit(unsigned int IW)
 	funct3 = (IW >> 12) & 0x00000007; // 3 bits
 	rs1 = (IW >> 15) & 0x0000001F;	  // 5 bits
 	rs2 = (IW >> 20) & 0x0000001F;	  // 5 bits
-	I_imm = (((IW >> 20) & 0x7FF) |
-		(((IW >> 31) & 1) ? 0xFFFFF800 : 0x0)); // 12 bits
+	I_imm = ((IW >> 20) & 0x7FF); // 12 bits
 	S_imm_temp = (IW >> 25) & 0x0000007F;			 // First 7 bits
-	S_imm = (S_imm_temp << 5) | rd | ((IW >> 31) ? 0xFFFFF800 : 0x0);
+	S_imm = (S_imm_temp << 5) | rd ;
 
 	U_imm = (IW >> 12);
 	J_imm = (((IW >> 12) & 0x000000FF) << 12) |
 		(((IW >> 20) & 1) << 11) |
-		(((IW >> 21) & 0x000003FF) << 1) |
-		(((IW >> 31) & 1) ? 0xFFF00000 : 0x0);
+		(((IW >> 21) & 0x000003FF) << 1);
 
 	funct7 = (IW >> 25) & 0x7F;			 // 7 bits
 	immediate_12 = (IW >> 31) & 0x1;	 // 1 bit
@@ -120,10 +118,7 @@ void InstDec32bit(unsigned int IW)
 	immediate_11 = (IW >> 7) & 0x1;		 // 1 bit
 	B_imm = (immediate_12 << 12) |
 		(immediate_11 << 11) |
-		(immediate_10to5 << 5) |
-		(immediate_4to1 << 1) | (immediate_12)
-		? 0xFFF00000
-		: 0x0;
+		(immediate_10to5 << 5);
 
 	// cout << "Test: " << opcode << " " << funct3 << " " << rs1 << " " << rs2 << " " << S_imm << endl;
 
@@ -202,7 +197,8 @@ void InstDec16bit(unsigned int IW)
 	unsigned int opcode, rs1_3, rs1_5, rd, S_imm, I_imm, J_imm, U_imm, funct3, funct2;
 	unsigned int seg1, seg2, temp2, temp6, rd2, rs2, rs1;
 	unsigned int ADD_rs2, ADD_rd_rs1, funct4, A_rs2, funct2_1, A_rd_rs1, funct6;
-	unsigned int I_16_SP, I_14_SP; //latest addition
+	unsigned int I_16_SP, I_14_SP; 
+	unsigned int offset_7_swsp, offset8, offset_7_lwsp;
 	unsigned int instPC = pc - 2;
 
 	opcode = IW & 0x0003;	   // Last 2 bits
@@ -217,28 +213,20 @@ void InstDec16bit(unsigned int IW)
 	seg1 = (IW >> 10) & 0x7;   // 3 bits (part of imm in load/store)
 	funct3 = (IW >> 13) & 0x7; // 3 bits
 	S_imm = (temp6 << 6) | (seg1 << 3) | (temp2 << 2) | 0x0;
-	I_imm = (seg2 << 5) | I_imm | ((seg2 << 5) ? 0xfffffc0 : 0x0);
-	J_imm = ((((
+	I_imm = (seg2 << 5) | I_imm | ((seg2 << 5) );  
+	J_imm = (
 		(((IW >> 3) & (0x7)) << 1) |
-		(((IW >> 12) & (0x1)) << 4) |
+		(((IW >> 12) & (0x1)) << 4)|
 		(((IW >> 2) & (0x1)) << 5) |
 		(((IW >> 7) & (0x1)) << 6) |
 		(((IW >> 6) & (0x1)) << 7) |
 		(((IW >> 10) & (0x3)) << 8) |
 		(((IW >> 9) & (0x1)) << 10) |
-		(((IW >> 11) & (0x1)) << 11)) |
-		((((IW >> 11) & (0x1)) << 11) & 1)
-		? 0xFFFFF000 
-		: 0x0)
-		<< 1) 
-		|0x0);
+		(((IW >> 11) & (0x1)) << 11)| 0x0);
+
 	U_imm = ((
 		(((IW >> 2) & (0b11111)) |
-			(((IW >> 12) & (0b1)) << 7)))) |
-		((IW >> 12) & (0b1))
-		? 0xffffffc0 
-		: 0x0;
-	// addi x0, x0, -7
+			(((IW >> 12) & (0b1)) << 7))));
 	ADD_rs2 = (IW >> 2) & 0x1F;	   // 5 bits
 	funct4 = (IW >> 12) & 0xF;	   // 4 bits
 	funct6 = (IW >> 10) & 0x3F;	   // 6 bits;
@@ -251,10 +239,8 @@ void InstDec16bit(unsigned int IW)
 		(((IW >> 2) & 0b1) << 1) |
 		(((IW >> 5) & 0b1) << 2) |
 		(((IW >> 3) & 0b11) << 3) |
-		(((IW >> 11) & 0b1) << 5)) |
-		((((IW >> 11) & (0x1)) << 5) & 1)
-		? 0x3ffffff   
-		: 0x0;
+		(((IW >> 11) & 0b1) << 5)) ;
+
 	I_14_SP = (((IW >> 6) & 0b1) |
 		(((IW >> 5) & 0b1) << 1) |
 		(((IW >> 11) & 0b1) << 2) |
@@ -265,6 +251,9 @@ void InstDec16bit(unsigned int IW)
 	funct3 = (IW >> 13) & 0x7;
 	rs2 = (IW >> 2) & 0x1F;
 	rs1 = (IW >> 7) & 0x7;
+	offset_7_swsp = ((IW >> 8) & 0x1);
+	offset8 = ((IW >> 12) & 0X1);
+	offset_7_lwsp = ((IW >> 3) & 0x1);
 
 	unsigned int B_immediate = (((IW >> 12) & 0X1) << 8) |
 		(((IW >> 5) & 0x3) << 6) |
@@ -320,9 +309,18 @@ void InstDec16bit(unsigned int IW)
 		else if (funct3 == 2)
 			cout << "C.LI " << ABI[rs1_5] << ", 0x" << hex << int(I_imm) << endl;
 		if (funct3 == 6)
-			cout << "C.BEQZ" << "\t" << CABI[rs1] << ", x0, " << hex << "0x" << B_immediate << endl;
+		{
+			cout << "C.BEQZ" << "\t" << CABI[rs1] << ", x0, " << hex << "0x";
+			signExtension(B_immediate, 12, 8);
+			cout << endl;
+		}
+
 		else if (funct3 == 7)
+		{
 			cout << "C.BNEZ" << "\t" << CABI[rs1] << ", x0, " << hex << B_immediate << endl;
+			signExtension(B_immediate, 12, 8);
+			cout << endl;
+		}
 		else
 			cout << "Unkown Instruction \n";
 		break;
@@ -341,10 +339,18 @@ void InstDec16bit(unsigned int IW)
 			cout << "C.ADD " << ABI[ADD_rd_rs1] << ", " << ABI[ADD_rd_rs1] << ", " << ABI[ADD_rs2] << endl;
 		else if (funct4 == 8)
 			cout << "C.JR" << ABI[rs1_5] << endl;
-		if (funct3 == 2 && rd2 != 0)
-			cout << "C.LWSP" << "\t" << ABI[rd2] << " 0x" << hex << lwsp_immediate << "(X2)" << endl;
+		if (funct3 == 2 && rd != 0)
+		{
+			cout << "C.LWSP" << "\t" << ABI[rd] << " 0x" << hex;
+			signExtension(lwsp_immediate, 8, 3);
+			cout << "(X2)" << endl;
+		}
 		else if (funct3 == 6)
-			cout << "C.SWSP" << "\t" << ABI[rs2] << " 0x" << hex << swsp_immediate << "(X2)" << endl;
+		{
+			cout << "C.SWSP" << "\t" << ABI[rs2] << " 0x" << hex;
+			signExtension(swsp_immediate, 8, 8);
+			cout << "(X2)" << endl;
+		}
 		else
 			cout << "Unkown Instruction \n";
 		break;
@@ -368,4 +374,14 @@ void Read16bits(unsigned int& instWord)
 	instWord = (unsigned char)memory[pc] |
 		(((unsigned char)memory[pc + 1]) << 8);
 	pc += 2;
+}
+void signExtension(unsigned int immediate, int imm_size, int MSB_location)
+{
+	unsigned int test = (immediate >> MSB_location) & 0x1;
+	if (test)
+	{
+		unsigned int temp = 0xfffffff - (pow(2, imm_size) - 1);
+		immediate = immediate | temp;
+	}
+	cout << immediate;
 }
