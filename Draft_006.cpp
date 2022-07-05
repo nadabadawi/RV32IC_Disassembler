@@ -4,22 +4,26 @@
 #include "Instructions.h"
 #include <fstream>
 #include <iomanip>
+#include <cmath>
 
 using namespace std;
 
-// Notes: 1- Change immediate values to hexadecimals.
-
+//Arrays that store the registers based on its number
 string ABI[32] = { "zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6" };
 string CABI[8] = { "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5" };
 
 // Utility Functions:
+//Prints the address and the instruction word
 void printPrefix(unsigned int instA, unsigned int instW);
+//Print error in case it occurs
 void emitError(string s);
+//Read 16 bits at a time
 void Read16bits(unsigned int& instWord);
 // Main Algorithm:
 void InstDec16bit(unsigned int IW);
 void InstDec32bit(unsigned int IW);
-
+//Handles Sign Extension of immediate values
+void signExtension(unsigned int immediate, int imm_size, int MSB_location);
 char memory[8 * 1024];
 unsigned int pc = 0x0;
 
@@ -41,7 +45,6 @@ int main(int argc, char* argv[])
 	{
 		int fsize = inFile.tellg();
 		int count = 0;
-		// cout << "Size: " << fsize;
 		inFile.seekg(0, inFile.beg);
 		if (!inFile.read((char*)memory, fsize))
 			emitError("Cannot read from input file\n");
@@ -70,41 +73,25 @@ int main(int argc, char* argv[])
 		emitError("Cannot access input file\n");
 }
 
-/*int main()
-{
-	//Testing 32 bits IW:
-	/*unsigned int bin = 0xC6520F23;
-	unsigned int lhu = 0x00545403;
-	unsigned int test2 = 0x40535293;
-	InstDec32bit(lhu);
-	unsigned int bin2 = 0x48C0; //--> C.LW //0xC8C0 --> C.SW
-	unsigned int addi = 0x315;
-	/*bitset<16> x(bin2);
-	cout << x << endl << endl;
-	InstDec16bit(addi);
-	system("pause");
-	return 0;
-}*/
-
 void InstDec32bit(unsigned int IW)
 {
 	unsigned int rd, rs1, rs2, funct3, opcode;
 	unsigned int I_imm, S_imm, S_imm_temp, B_imm;
-	// unsigned int address;
 	unsigned int funct7;
 	unsigned int immediate_12, immediate_10to5, immediate_4to1, immediate_11, J_imm_temp, U_imm, J_imm;
 
 	unsigned int instPC = pc - 4;
 
+	//Read Insword in segments:
+
 	opcode = IW & 0x0000007F; // Last 7 bits
-	// S_imm = (IW >> 7) & 0x0000001F; //5 bits
 	rd = (IW >> 7) & 0x1F;			  // 5 bits //rd for I-Type and imm[4:0] for S-Type
 	funct3 = (IW >> 12) & 0x00000007; // 3 bits
 	rs1 = (IW >> 15) & 0x0000001F;	  // 5 bits
 	rs2 = (IW >> 20) & 0x0000001F;	  // 5 bits
 	I_imm = (((IW >> 20) & 0x7FF) |
 		(((IW >> 31) & 1) ? 0xFFFFF800 : 0x0)); // 12 bits
-	S_imm_temp = (IW >> 25) & 0x0000007F;			 // First 7 bits
+	S_imm_temp = (IW >> 25) & 0x0000007F; // First 7 bits
 	S_imm = (S_imm_temp << 5) | rd | ((IW >> 31) ? 0xFFFFF800 : 0x0);
 
 	U_imm = (IW >> 12);
@@ -112,6 +99,7 @@ void InstDec32bit(unsigned int IW)
 		(((IW >> 20) & 1) << 11) |
 		(((IW >> 21) & 0x000003FF) << 1) |
 		(((IW >> 31) & 1) ? 0xFFF00000 : 0x0);
+
 
 	funct7 = (IW >> 25) & 0x7F;			 // 7 bits
 	immediate_12 = (IW >> 31) & 0x1;	 // 1 bit
@@ -125,7 +113,6 @@ void InstDec32bit(unsigned int IW)
 		? 0xFFF00000
 		: 0x0;
 
-	// cout << "Test: " << opcode << " " << funct3 << " " << rs1 << " " << rs2 << " " << S_imm << endl;
 
 	// funct3 is the index of each vector (based on opcode)
 	printPrefix(instPC, IW);
@@ -195,14 +182,18 @@ void InstDec32bit(unsigned int IW)
 		cout << "Unkown Instruction \n";
 	}
 }
+
 void InstDec16bit(unsigned int IW)
 {
 
 	unsigned int opcode, rs1_3, rs1_5, rd, S_imm, I_imm, J_imm, U_imm, funct3, funct2;
-	unsigned int seg1, seg2, temp2, temp6;
+	unsigned int seg1, seg2, temp2, temp6, rd2, rs2, rs1;
 	unsigned int ADD_rs2, ADD_rd_rs1, funct4, A_rs2, funct2_1, A_rd_rs1, funct6;
-
+	unsigned int I_16_SP, I_14_SP;
+	unsigned int offset_7_swsp, offset8, offset_7_lwsp;
 	unsigned int instPC = pc - 2;
+
+	//Read InstWord in segments
 
 	opcode = IW & 0x0003;	   // Last 2 bits
 	rd = (IW >> 2) & 0x0007;   // 3 bits
@@ -231,13 +222,13 @@ void InstDec16bit(unsigned int IW)
 		: 0x0)
 		<< 1) |
 		0x0);
+
 	U_imm = ((
 		(((IW >> 2) & (0b11111)) |
 			(((IW >> 12) & (0b1)) << 7)))) |
-		((IW >> 12) & (0b1))
+		((IW >> 12) & (0b1) & 1)
 		? 0xffffffc0
 		: 0x0;
-	// addi x0, x0, -7
 	ADD_rs2 = (IW >> 2) & 0x1F;	   // 5 bits
 	funct4 = (IW >> 12) & 0xF;	   // 4 bits
 	funct6 = (IW >> 10) & 0x3F;	   // 6 bits;
@@ -254,22 +245,43 @@ void InstDec16bit(unsigned int IW)
 		((((IW >> 11) & (0x1)) << 5) & 1)
 		? 0x3ffffff
 		: 0x0;
+
 	I_14_SP = (((IW >> 6) & 0b1) |
 		(((IW >> 5) & 0b1) << 1) |
 		(((IW >> 11) & 0b1) << 2) |
 		(((IW >> 12) & 0b1) << 3) |
-		(((IW >> 7) & 0xf) << 4))
+		(((IW >> 7) & 0xf) << 4));
+
+	rd2 = (IW >> 7) & 0x1F;
+	funct3 = (IW >> 13) & 0x7;
+	rs2 = (IW >> 2) & 0x1F;
+	rs1 = (IW >> 7) & 0x7;
+	offset_7_swsp = ((IW >> 8) & 0x1);
+	offset8 = ((IW >> 12) & 0X1);
+	offset_7_lwsp = ((IW >> 3) & 0x1);
+
+	unsigned int B_immediate = (((IW >> 12) & 0X1) << 8) |
+		(((IW >> 5) & 0x3) << 6) |
+		(((IW >> 2) & 0x1) << 5) |
+		(((IW >> 10) & 0x3) << 3) |
+		(((IW >> 3) & 0x3) << 1) | 0x0;
+
+	unsigned int lwsp_immediate = ((((IW >> 2) & 0x3) << 6) |
+		(((IW >> 12) & 0x1) << 5) |
+		(((IW >> 4) & 0x7) << 2)) << 0x0;
+
+	unsigned int swsp_immediate = ((((IW >> 7) & 0x3) << 6) |
+		(((IW >> 9) & 0xF) << 2)) << 0x0;
 
 	printPrefix(instPC, IW);
 
-	// cout << "Test: " << opcode << " " << funct3 << " " << rs1 << " " << rs2 << " " << S_imm << endl;
-	////funct3 is the index of each vector (based on opcode)
+	//funct3/funct2 is the index of each vector (based on opcode)
 
 	switch (opcode)
 	{
 	case 0:
 		if (funct3 == 0)
-			cout << "C.ADDI14SP " << ABI[rs1_3] << ", 0x" << hex << int(I_16_SP) << endl;
+			cout << "C.ADDI14SP " << CABI[rs1_3] << ", 0x" << hex << int(I_16_SP) << endl;
 		else
 			cout << LoadStore16[(funct3 - 2) / 4] << " " << CABI[rd] << ", 0x" << hex << S_imm << "(" << CABI[rs1_3] << ")\n";
 		break;
@@ -282,7 +294,7 @@ void InstDec16bit(unsigned int IW)
 			else
 				cout << Immediate16[3] << " " << ABI[rs1_5] << ", " << ABI[rs1_5] << ", 0x" << hex << int(I_imm) << endl; // Since the register is 5 bits
 		}
-			
+
 		else if (funct3 == 4)
 			cout << Immediate16[funct2] << " " << CABI[rs1_3] << ", " << CABI[rs1_3] << ", 0x" << hex << int(I_imm) << endl;
 		else if (funct3 == 1)
@@ -293,13 +305,26 @@ void InstDec16bit(unsigned int IW)
 			cout << Arithmetic16[funct2_1] << " " << CABI[A_rd_rs1] << ", " << CABI[A_rd_rs1] << ", " << CABI[A_rs2] << endl;
 		else if (funct3 == 3)
 		{
-			if(rs1_5 == 2)
+			if (rs1_5 == 2)
 				cout << "C.ADDI16SP " << "0x" << hex << int(I_16_SP) << endl;
 			else
 				cout << "C.LUI " << ABI[rs1_5] << ", 0x" << hex << int(U_imm) << endl;
 		}
 		else if (funct3 == 2)
 			cout << "C.LI " << ABI[rs1_5] << ", 0x" << hex << int(I_imm) << endl;
+		else if (funct3 == 6)
+		{
+			cout << "C.BEQZ" << "\t" << CABI[rs1] << ", x0, " << hex << "0x";
+			signExtension(B_immediate, 12, 8);
+			cout << endl;
+		}
+
+		else if (funct3 == 7)
+		{
+			cout << "C.BNEZ" << "\t" << CABI[rs1] << ", x0, " << hex << B_immediate << endl;
+			signExtension(B_immediate, 12, 8);
+			cout << endl;
+		}
 		else
 			cout << "Unkown Instruction \n";
 		break;
@@ -318,11 +343,24 @@ void InstDec16bit(unsigned int IW)
 			cout << "C.ADD " << ABI[ADD_rd_rs1] << ", " << ABI[ADD_rd_rs1] << ", " << ABI[ADD_rs2] << endl;
 		else if (funct4 == 8)
 			cout << "C.JR" << ABI[rs1_5] << endl;
+		else if (funct3 == 2 && rd != 0)
+		{
+			cout << "C.LWSP" << "\t" << ABI[rd] << " 0x" << hex;
+			signExtension(lwsp_immediate, 8, 3);
+			cout << "(sp)" << endl;
+		}
+		else if (funct3 == 6)
+		{
+			cout << "C.SWSP" << "\t" << ABI[rs2] << " 0x" << hex;
+			signExtension(swsp_immediate, 8, 8);
+			cout << "(sp)" << endl;
+		}
 		else
 			cout << "Unkown Instruction \n";
 		break;
 	default:
 		cout << "Unkown Instruction \n";
+		break;
 	}
 }
 
@@ -341,4 +379,14 @@ void Read16bits(unsigned int& instWord)
 	instWord = (unsigned char)memory[pc] |
 		(((unsigned char)memory[pc + 1]) << 8);
 	pc += 2;
+}
+void signExtension(unsigned int immediate, int imm_size, int MSB_location)
+{
+	unsigned int test = (immediate >> MSB_location) & 0x1;
+	if (test)
+	{
+		unsigned int temp = 0xfffffff - (pow(2, imm_size) - 1);
+		immediate = immediate | temp;
+	}
+	cout << immediate;
 }
