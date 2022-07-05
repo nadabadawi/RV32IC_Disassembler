@@ -5,5 +5,7 @@ The code makes use of 2 functions, one for each type of instruction word (16 and
 
 Contributions: 
 Nada Badawi - Implemented S- and I- instruction types (store and immediate types) along with other compressed instructions, such as C.MV, C.LI
+
 Farah Awad - Implemented B- and R- instruction types (branch and register types) along with other compressed instructions, such as C.LWSP, C.SWSP
+
 Nermien Elassy - Implemented J- and U- instruction types (jal and upper types) along with other compressed instructions, such as C.ADDI16SP, C.ADDI4SPN
