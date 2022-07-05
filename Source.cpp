@@ -39,6 +39,8 @@ int UnsignedIntImm(unsigned int immediate, int size)
         case(12):
             AllOnes = 0xFFF;
             break;
+        case(13):
+            AllOnes = 0x1FFF;
         case(18):
             AllOnes = 0x3FFFF;
             break;
